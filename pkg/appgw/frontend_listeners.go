@@ -7,7 +7,6 @@ package appgw
 
 import (
 	"sort"
-	"strconv"
 
 	n "github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-12-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -66,13 +65,14 @@ func (c *appGwConfigBuilder) getListenerConfigs(ingressList []*v1beta1.Ingress) 
 func (c *appGwConfigBuilder) newListener(listener listenerIdentifier, protocol n.ApplicationGatewayProtocol, envVariables environment.EnvVariables) n.ApplicationGatewayHTTPListener {
 	frontendPortName := generateFrontendPortName(listener.FrontendPort)
 	frontendPortID := c.appGwIdentifier.frontendPortID(frontendPortName)
+	usePrivateIP := listener.UsePrivateIP || envVariables.UsePrivateIP == "true"
 
 	return n.ApplicationGatewayHTTPListener{
 		Etag: to.StringPtr("*"),
 		Name: to.StringPtr(generateListenerName(listener)),
 		ApplicationGatewayHTTPListenerPropertiesFormat: &n.ApplicationGatewayHTTPListenerPropertiesFormat{
 			// TODO: expose this to external configuration
-			FrontendIPConfiguration: resourceRef(*c.getIPConfigurationID(envVariables)),
+			FrontendIPConfiguration: resourceRef(*GetIPConfigurationID(&c.appGw, usePrivateIP)),
 			FrontendPort:            resourceRef(frontendPortID),
 			Protocol:                protocol,
 			HostName:                &listener.HostName,
@@ -80,9 +80,9 @@ func (c *appGwConfigBuilder) newListener(listener listenerIdentifier, protocol n
 	}
 }
 
-func (c *appGwConfigBuilder) getIPConfigurationID(envVariables environment.EnvVariables) *string {
-	usePrivateIP, _ := strconv.ParseBool(envVariables.UsePrivateIP)
-	for _, ip := range *c.appGw.FrontendIPConfigurations {
+// GetIPConfigurationID returns ID if given IP exists
+func GetIPConfigurationID(appGw *n.ApplicationGateway, usePrivateIP bool) *string {
+	for _, ip := range *appGw.FrontendIPConfigurations {
 		if ip.ApplicationGatewayFrontendIPConfigurationPropertiesFormat != nil &&
 			((usePrivateIP && ip.PrivateIPAddress != nil) ||
 				(!usePrivateIP && ip.PublicIPAddress != nil)) {
