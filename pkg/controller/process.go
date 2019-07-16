@@ -59,7 +59,7 @@ func (c AppGwIngressController) Process(event events.Event) error {
 			cbCtx.IngressList[idx].Spec.Rules = brownfield.PruneIngressRules(ingress, cbCtx.ProhibitedTargets)
 			glog.V(5).Infof("Sanitized Ingress[%d] Rules: %+v", idx, ingress.Spec.Rules)
 		}
-  }
+	}
 
 	if cbCtx.EnvVariables.EnableIstioIntegration == "true" {
 		var gatewaysInfo []string
