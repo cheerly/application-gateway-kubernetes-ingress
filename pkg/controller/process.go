@@ -32,21 +32,34 @@ func (c AppGwIngressController) Process(event events.Event) error {
 		return errors.New("unable to get specified ApplicationGateway")
 	}
 
+	envVars := environment.GetEnv()
+	prohibitedTargets := c.k8sContext.ListAzureProhibitedTargets()
+
 	cbCtx := &appgw.ConfigBuilderContext{
-		ServiceList:          c.k8sContext.ListServices(),
-		IngressList:          c.k8sContext.ListHTTPIngresses(),
-		ProhibitedTargets:    c.k8sContext.ListAzureProhibitedTargets(),
-		IstioGateways:        c.k8sContext.ListIstioGateways(),
-		IstioVirtualServices: c.k8sContext.ListIstioVirtualServices(),
-		EnvVariables:         environment.GetEnv(),
+		ServiceList:                c.k8sContext.ListServices(),
+		IngressList:                c.k8sContext.ListHTTPIngresses(),
+		ProhibitedTargets:          c.k8sContext.ListAzureProhibitedTargets(),
+		IstioGateways:              c.k8sContext.ListIstioGateways(),
+		IstioVirtualServices:       c.k8sContext.ListIstioVirtualServices(),
+		EnvVariables:               envVars,
+		EnableBrownfieldDeployment: envVars.EnableBrownfieldDeployment == "true" && len(prohibitedTargets) > 0,
 	}
 
 	cbCtx.IngressList = c.PruneIngress(&appGw, cbCtx)
-	if len(cbCtx.IngressList) == 0{
+	if len(cbCtx.IngressList) == 0 {
 		errorLine := "no Ingress in the pruned Ingress list. Please check Ingress events to get more information"
 		glog.Error(errorLine)
 		return errors.New(errorLine)
-	}
+  }
+
+	// Mutate the list of Ingresses by removing ones that AGIC should not be creating configuration.
+	if cbCtx.EnableBrownfieldDeployment {
+		for idx, ingress := range cbCtx.IngressList {
+			glog.V(5).Infof("Original Ingress[%d] Rules: %+v", idx, ingress.Spec.Rules)
+			cbCtx.IngressList[idx].Spec.Rules = brownfield.PruneIngressRules(ingress, cbCtx.ProhibitedTargets)
+			glog.V(5).Infof("Sanitized Ingress[%d] Rules: %+v", idx, ingress.Spec.Rules)
+		}
+  }
 
 	if cbCtx.EnvVariables.EnableIstioIntegration == "true" {
 		var gatewaysInfo []string
