@@ -50,7 +50,7 @@ func (c AppGwIngressController) Process(event events.Event) error {
 		errorLine := "no Ingress in the pruned Ingress list. Please check Ingress events to get more information"
 		glog.Error(errorLine)
 		return errors.New(errorLine)
-  }
+        }
 
 	// Mutate the list of Ingresses by removing ones that AGIC should not be creating configuration.
 	if cbCtx.EnableBrownfieldDeployment {
