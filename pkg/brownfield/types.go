@@ -15,9 +15,6 @@ type listenerName string
 type pathmapName string
 type poolToTargets map[backendPoolName][]Target
 
-// TargetBlacklist is a list of Targets, which AGIC is not allowed to apply configuration for.
-type TargetBlacklist *[]Target
-
 // ExistingResources is used in brownfield deployments and
 // holds a copy of the existing App Gateway config, based
 // on which AGIC will determine what should be retained and
